@@ -18,18 +18,20 @@ optional_run() {
     echo "$command ${arguments[@]}" # Print command and arguments
 
     if [[ $QUIET == true ]]; then
-        "$command" "${arguments[@]}" </dev/null &
-        1>/dev/null || error "Failed to run the command: $command ${arguments[*]}"
-        return $?
+        "$command" "${arguments[@]}" </dev/null &1>/dev/null
+    else
+        "$command" "${arguments[@]}" </dev/null
     fi
-
-    "$command" "${arguments[@]}" </dev/null || error "Failed to run the command: $command ${arguments[*]}"
 
     return $?
 }
 
 run() {
-    optional_run "$@" || error "Failed to run the command: $command ${arguments[*]}"
+    optional_run "$@"
+    local ret_code=$?
+    if [[ $ret_code -ne 0 ]]; then
+        error "Failed to run the command: $*" $ret_code
+    fi
 }
 
 update_flags_from_arg() {
@@ -53,6 +55,31 @@ remove_flags_from_arg() {
         fi
     done
     echo "${new_opts[@]}"
+}
+
+update_var_from_arg() {
+    # Update a variable from the command line arguments
+    # Usage: update_var_from_arg <var_name> <arg_flag> "${args[@]}"
+    # Args are in the form of '-arg_flag=value' or '-arg_flag value'
+    local var_name="$1"
+    local arg_flag="$2"
+    shift 2
+    local args=("$@")
+
+    for ((i=${#args[@]}-1; i>=0; i--)); do
+        local arg="${args[i]}"
+        if [[ "$arg" == "$arg_flag="* ]]; then
+            local value="${arg#*=}"
+            printf -v "$var_name" "%s" "$value"
+            return 0
+        elif [[ "$arg" == "$arg_flag" && ${args[i+1]} != -* ]]; then
+            local value="${args[i+1]}"
+            printf -v "$var_name" "%s" "$value"
+            return 0
+        fi
+    done
+
+    return 1
 }
 
 pkg_check() {
@@ -122,11 +149,11 @@ pkg_install() {
             # Fedora
             run sudo dnf install -y "$@"
         else
-            error "Unsupported Linux distribution. Please install the package(s) $@ manually."
+            error "Unsupported Linux distribution. Please install the package(s) $* manually."
         fi
         ;;
     *)
-        error "Unsupported operating system: $os. Please install the package(s) $@ manually."
+        error "Unsupported operating system: $os. Please install the package(s) $* manually."
         ;;
     esac
 }
@@ -149,11 +176,11 @@ pkg_remove() {
             # Fedora
             run sudo dnf remove -y "$@"
         else
-            error "Unsupported Linux distribution. Please remove the package(s) $@ manually."
+            error "Unsupported Linux distribution. Please remove the package(s) $* manually."
         fi
         ;;
     *)
-        error "Unsupported operating system: $os. Please remove the package(s) $@ manually."
+        error "Unsupported operating system: $os. Please remove the package(s) $* manually."
         ;;
     esac
 }
@@ -165,6 +192,7 @@ git_clone_or_pull() {
     if [[ -d $path ]]; then
         # Directory exists, perform git pull
         run git -C "$path" pull
+        run git submodule update --init --recursive
     else
         # Directory does not exist, perform git clone
         run git clone --recursive "$url" "$path"
@@ -189,18 +217,27 @@ append_env() {
 
 user_owns() {
     local file=$1
-    local owner=$(stat -c %U "$file")
+    local owner=$(stat -c %U "$file" 2>/dev/null || echo "")
     echo "$owner"
 }
 
 group_own() {
     local file=$1
-    local group=$(stat -c %G "$file")
+    local group=$(stat -c %G "$file" 2>/dev/null || echo "")
     echo "$group"
 }
 
 who_owns() {
     local file=$1
-    local owner=$(stat -c "%U:%G" "$file")
+    local owner=$(stat -c "%U:%G" "$file" 2>/dev/null || echo ":")
     echo "$owner"
+}
+
+correct_ownership() {
+    local path=$1
+    local owner=${2:-"$(whoami):$(id -gn)"}
+    local old_owner=$(who_owns "$path")
+    if [[ $owner != $old_owner ]]; then
+        run sudo -E chown -R "$owner" "$path"
+    fi
 }

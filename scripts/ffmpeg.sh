@@ -6,9 +6,9 @@ install_ffmpeg() {
     local SDIR="$(realpath "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")")"
     local ROOTDIR=$(dirname "$SDIR")
     local ENV_PATH="$ROOTDIR/env/ffmpeg_env.sh"
-    local opts=("$(remove_flags_from_arg "$@")")
+    local opts=($(remove_flags_from_arg "$@"))
     local source_only=false
-    opts=("${opts[@]/-source-only}")
+    opts=(${opts[@]/-source-only})
 
     if [[ "$@" == *"-source-only"* ]]; then
         source_only=true
@@ -22,13 +22,13 @@ install_ffmpeg() {
 
     update_flags_from_arg "$@"
 
+    run cd "$SRCDIR"
     local SRCDIR="$ROOTDIR/ffmpeg_src"
     local TMPDIR="$ROOTDIR/ffmpeg_tmp"
     local BINDIR="$ROOTDIR/ffmpeg"
     run mkdir -p "$SRCDIR"
     run mkdir -p "$TMPDIR"
     run mkdir -p "$BINDIR"
-    run cd "$SRCDIR"
     export PATH="$BINDIR:$PATH"
     export PKG_CONFIG_PATH="$TMPDIR/lib/pkgconfig"
     export CFLAGS="$CFLAGS -march=native"
@@ -41,17 +41,17 @@ install_ffmpeg() {
         git \
         libass-dev \
         libfreetype6-dev \
-        libmp3lame-dev \
         libtool \
         libvorbis-dev \
         meson \
         ninja-build \
         pkg-config \
         texinfo \
-        yasm \
         zlib1g-dev \
         libunistring-dev \
         libgnutls28-dev \
+        # libmp3lame-dev \
+        # yasm \
         # libxcb-xfixes0-dev \
         # libxcb-shm0-dev \
         # libxcb1-dev \
@@ -59,33 +59,63 @@ install_ffmpeg() {
         # libva-dev \
         # libsdl2-dev \
 
-    if [[ "$source_only" == false ]]; then
+    if [[ "${opts[@]}" != *"--enable-gpl"* ]]; then
+        opts+=("--enable-gpl")
+    fi
+
+    if [[ "${opts[@]}" != *"--enable-nonfree"* ]]; then
+        opts+=("--enable-nonfree")
+    fi
+
+    if [[ "${opts[@]}" != *"--enable-version3"* ]]; then
+        opts+=("--enable-version3")
+    fi
+
+    if [[ $source_only == false ]]; then
         pkg_install nasm
     else
         run cd "$SRCDIR"
-        local page=$(curl -s https://nasm.us/)
-        local re="www\.nasm\.us\/pub\/nasm\/releasebuilds\/([0-9]+\.[0-9]+\.[0-9]+)"
-        if [[ $page =~ $re ]]; then
-            local version="${BASH_REMATCH[1]}"
-        else
-            echo "Failed to get the latest version of nasm. Default to 2.16.01" 1>&2
-            version="2.16.01"
-            exit 1
+        local nasm_opts=(
+            --prefix="$TMPDIR"
+            --bindir="$BINDIR"
+        )
+        if [[ $DRY == true ]]; then
+            nasm_opts+=(-dry)
         fi
-        echo "nasm Latest version: $version"
-        local url="https://www.nasm.us/pub/nasm/releasebuilds/$version/nasm-$version.tar.bz2"
-        if [[ -d "nasm-$version" ]]; then
-            echo "nasm is already the latest version."
-        else
-            run curl -LO $url
-            run tar -xjf "nasm-$version.tar.bz2"
-            run rm "nasm-$version.tar.bz2"
-            run cd "nasm-$version"
-            run ./autogen.sh
-            run ./configure --prefix="$TMPDIR" --bindir="$BINDIR"
-            run make -j$(nproc)
-            run sudo -E make install
+        if [[ $QUIET == true ]]; then
+            nasm_opts+=(-quiet)
         fi
+        source "$SDIR/nasm.sh" "${nasm_opts[@]}" || exit 1
+    fi
+
+    if [[ $source_only == false ]]; then
+        pkg_install yasm
+    elif [[ -z $(pkg_check yasm) ]]; then
+        run cd "$SRCDIR"
+        if [[ ! -d "yasm-1.3.0" ]]; then
+            run curl -LO https://www.tortall.net/projects/yasm/releases/yasm-1.3.0.tar.gz
+            run tar xzf yasm-1.3.0.tar.gz
+            run rm yasm-1.3.0.tar.gz
+        fi
+        run cd yasm-1.3.0
+        run ./configure --prefix="$TMPDIR" --bindir="$BINDIR"
+        run make -j$(nproc)
+        run sudo -E make install
+    fi
+
+    if [[ $source_only == false ]]; then
+        pkg_install libmp3lame-dev
+    else
+        run cd "$SRCDIR"
+        if [[ ! -d "lame-3.100" ]]; then
+            run curl -LO https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz
+            run tar xzf lame-3.100.tar.gz
+            run rm lame-3.100.tar.gz
+        fi
+        run cd lame-3.100
+        run ./configure --prefix="$TMPDIR" --bindir="$BINDIR" --disable-shared --enable-nasm
+        run make -j$(nproc)
+        run sudo -E make install
     fi
 
     if [[ "${opts[@]}" == *"--enable-libx264"* ]]; then
@@ -95,12 +125,9 @@ install_ffmpeg() {
             run cd "$SRCDIR"
             git_clone_or_pull https://code.videolan.org/videolan/x264.git x264
             run cd x264
-            run ./configure --prefix="$TMPDIR" --bindir="$BINDIR" --enable-static --enable-pic
+            run ./configure --prefix="$TMPDIR" --bindir="$BINDIR" --enable-static
             run make -j$(nproc)
             run sudo -E make install
-        fi
-        if [[ "${opts[@]}" != *"--enable-gpl"* ]]; then
-            opts+=("--enable-gpl")
         fi
     fi
 
@@ -129,9 +156,6 @@ install_ffmpeg() {
             run make -j$(nproc)
             run sudo -E make install
         fi
-        if [[ "${opts[@]}" != *"--enable-gpl"* ]]; then
-            opts+=("--enable-gpl")
-        fi
     fi
 
     if [[ "${opts[@]}" == *"--enable-libvpx"* ]]; then
@@ -158,11 +182,6 @@ install_ffmpeg() {
             run ./configure --prefix="$TMPDIR" --disable-shared
             run make -j$(nproc)
             run sudo -E make install
-        fi
-        if [[ "${opts[@]}" == *"--enable-gpl"* ]]; then
-            if [[ "${opts[@]}" != *"--enable-nonfree"* ]]; then
-                opts+=("--enable-nonfree")
-            fi
         fi
     fi
 
@@ -228,10 +247,6 @@ install_ffmpeg() {
     if [[ "${opts[@]}" == *"--enable-libvmaf"* ]]; then
         run cd "$SRCDIR"
         git_clone_or_pull https://github.com/Netflix/vmaf.git vmaf
-        if [[ "${opts[@]}" != *"--ld='g++'"* ]]; then
-            opts+=("--ld=g++")
-            # https://github.com/Netflix/vmaf/issues/788
-        fi
         local vmaf_tmpdir="$TMPDIR/vmaf"
         run mkdir -p "$vmaf_tmpdir"
         run cd "$vmaf_tmpdir"
@@ -241,16 +256,58 @@ install_ffmpeg() {
     fi
 
     if [[ "${opts[@]}" == *"--enable-librav1e"* ]]; then
+        run cd "$SRCDIR"
+        local rav1e_opts=("--prefix=$TMPDIR")
         if [[ $DRY == true ]]; then
-            bash "$SDIR/rav1e.sh" -dry -cinstall \
-                --prefix=$TMPDIR \
-                --libdir=$TMPDIR/lib \
-                --includedir=$TMPDIR/include
+            rav1e_opts+=("-dry")
+        fi
+        if [[ $QUIET == true ]]; then
+            rav1e_opts+=("-quiet")
+        fi
+        source "$SDIR/rav1e.sh" -cinstall "${rav1e_opts[@]}"  || exit 1
+    fi
+
+    if [[ "${opts[@]}" == *"--enable-libbluray"* ]]; then
+        if [[ "$source_only" == false ]]; then
+            pkg_install libbluray-dev
         else
-            bash "$SDIR/rav1e.sh" -cinstall \
-                --prefix=$TMPDIR \
-                --libdir=$TMPDIR/lib \
-                --includedir=$TMPDIR/include
+            run cd "$SRCDIR"
+            git_clone_or_pull https://code.videolan.org/videolan/libbluray.git libbluray
+            run cd libbluray
+            run ./bootstrap
+            run ./configure --prefix="$TMPDIR" --disable-shared --disable-bdjava-jar --disable-doxygen-doc
+            run make -j$(nproc)
+            run sudo -E make install
+        fi
+    fi
+
+    if [[ "${opts[@]}" == *"--enable-libsrt"* ]]; then
+        if [[ "$source_only" == false ]]; then
+            pkg_install libsrt-dev
+        else
+            run cd "$SRCDIR"
+            git_clone_or_pull https://github.com/Haivision/srt.git srt
+            local srt_tmpdir="$TMPDIR/srt"
+            run mkdir -p "$srt_tmpdir"
+            run cd "$srt_tmpdir"
+            run cmake -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX="$TMPDIR" -DENABLE_C_DEPS=ON -DENABLE_SHARED=OFF -DENABLE_STATIC=ON "$SRCDIR/srt"
+            run make -j$(nproc)
+            run sudo -E make install
+        fi
+    fi
+
+    if [[ "${opts[@]}" == *"--enable-libplacebo"* ]]; then
+        if [[ "$source_only" == false ]]; then
+            pkg_install libplacebo-dev
+        else
+            run cd "$SRCDIR"
+            git_clone_or_pull https://code.videolan.org/videolan/libplacebo.git libplacebo
+            local libplacebo_tmpdir="$TMPDIR/libplacebo"
+            run mkdir -p "$libplacebo_tmpdir"
+            run cd "$libplacebo_tmpdir"
+            run meson setup --buildtype=release --default-library=static "$SRCDIR/libplacebo" --prefix "$TMPDIR" --libdir="$TMPDIR/lib"
+            run ninja
+            run sudo -E ninja install
         fi
     fi
 
@@ -263,9 +320,10 @@ install_ffmpeg() {
         --prefix="$TMPDIR" \
         --bindir="$BINDIR" \
         --pkg-config-flags="--static" \
-        --extra-cflags="-I$TMPDIR/include -march=native" \
+        --extra-cflags="-I$TMPDIR/include" \
         --extra-ldflags="-L$TMPDIR/lib" \
         --extra-libs="-lpthread -lm" \
+        --ld="g++" \
         --enable-gnutls \
         --enable-libass \
         --enable-libfreetype \
@@ -276,16 +334,15 @@ install_ffmpeg() {
     run sudo -E make install
     run hash -r
 
-    local ownership=$(who_owns "$BINDIR")
-    if [[ $(whoami) != $(user_owns "$BINDIR") ]]; then
-        run sudo -E chown -R $ownership "$BINDIR"
-        run sudo -E chown -R $ownership "$TMPDIR"
-    fi
+    correct_ownership "$TMPDIR" $(who_owns "$(dirname "$TMPDIR")")
+    correct_ownership "$BINDIR" $(who_owns "$(dirname "$BINDIR")")
+    run rm -rf "$TMPDIR"
 
     cd $ROOTDIR
     run mkdir -p $ROOTDIR/env
-    write_env $ENV_PATH "export PATH" "\$PATH:$ROOTDIR/ffmpeg"
+    write_env $ENV_PATH "export PATH" "$ROOTDIR/ffmpeg:\$PATH"
     append_env $ENV_PATH "FFMPEG_VERSION" "$VERSION"
+    export PATH="$ROOTDIR/ffmpeg:$PATH"
 }
 
 install_ffmpeg "$@"

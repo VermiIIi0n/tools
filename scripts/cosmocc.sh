@@ -44,8 +44,9 @@ install_cosmocc() {
 
     cd $ROOTDIR
     run mkdir -p $ROOTDIR/env
-    write_env $ENV_PATH "export PATH" "\$PATH:$ROOTDIR/cosmocc/bin"
+    write_env $ENV_PATH "export PATH" "$ROOTDIR/cosmocc/bin:\$PATH"
     append_env $ENV_PATH "COSMOCC_VERSION" "$VERSION"
+    export PATH="$ROOTDIR/cosmocc/bin:$PATH"
 }
 
 install_cosmocc "$@"

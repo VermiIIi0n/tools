@@ -9,11 +9,19 @@ install_rav1e() {
     source "$SDIR/utils.sh"
 
     update_flags_from_arg "$@"
+    run cd "$ROOTDIR"
+    local opts=($(remove_flags_from_arg "$@"))
+    local PREFIX="/usr/local"
+    update_var_from_arg PREFIX --prefix "${opts[@]}"
+    PREFIX="$(realpath "$PREFIX")"
+    local TGTDIR="$ROOTDIR/rav1e/target"
+    update_var_from_arg TGTDIR --target-dir "${opts[@]}"
+    local BINDIR="$TGTDIR/release"
 
     export RUSTFLAGS+=" -C target-cpu=native"
 
+
     pkg_install git cmake curl
-    cd $ROOTDIR
     git_clone_or_pull https://github.com/xiph/rav1e.git rav1e
 
     if ! command -v cargo &>/dev/null; then
@@ -22,19 +30,24 @@ install_rav1e() {
         run rustup default stable
     fi
 
-    cd rav1e
-    echo "Building rav1e..."
-    run cargo build --release
-
-    run mkdir -p $ROOTDIR/env
-    write_env "$ROOTDIR/env/rav1e_env.sh" "export PATH" "\$PATH:$ROOTDIR/rav1e/target/release/"
-
+    run cd rav1e
     if [[ "$@" == *"-cinstall"* ]]; then
         echo "Installing cargo-c..."
-        local opts=("$(remove_flags_from_arg "$@")")
-        opts=("${opts[@]/-cinstall}")
+        opts=("${opts[@]/-cinstall/}")
         run cargo install cargo-c
-        run sudo -E $(which cargo) cinstall --release "${opts[@]}"
+        echo "Building rav1e by cinstall..."
+        run sudo -E "$(which cargo)" cinstall --release --prefix="$PREFIX" "${opts[@]}"
+        correct_ownership "$PREFIX/include" $(who_owns "$PREFIX")
+        correct_ownership "$PREFIX/lib" $(who_owns "$PREFIX")
+        echo "Installed rav1e library to $PREFIX"
+    else
+        echo "Building rav1e..."
+        run sudo -E "$(which cargo)" build --release --target-dir="$TGTDIR" "${opts[@]}"
+        correct_ownership "$TGTDIR" $(who_owns "$(dirname "$TGTDIR")")
+        correct_ownership "$BINDIR" $(who_owns "$(dirname "$BINDIR")")
+        run mkdir -p $ROOTDIR/env
+        write_env "$ROOTDIR/env/rav1e_env.sh" "export PATH" "$BINDIR:\$PATH"
+        export PATH="$BINDIR:$PATH"
     fi
 }
 

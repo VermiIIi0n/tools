@@ -2,7 +2,7 @@
 
 This repo is a collection of useful tools that are either performance-critical or have no convenient way to install from a package manager.
 
-It works on Linux and macOS although not thoroughly tested other than on Ubuntu.
+It works on Linux and macOS although not been thoroughly tested other than on Ubuntu.
 
 All tools are installed under the root of the repository (except for some libraries that are installed to the system) by default.
 
@@ -11,6 +11,7 @@ All tools are installed under the root of the repository (except for some librar
 - [ffmpeg](https://ffmpeg.org/)
 - [cosmocc](https://github.com/jart/cosmopolitan)
 - [rav1e](https://github.com/xiph/rav1e) (Can be installed along with `ffmpeg`)
+- [nasm](https://www.nasm.us/) (Also be installed along with `ffmpeg`)
 
 ## Special Files
 

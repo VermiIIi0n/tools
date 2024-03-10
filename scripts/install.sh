@@ -35,6 +35,12 @@ auto_install() {
         echo "rav1e installed."
     fi
 
+    if [ $nasm_enable == true ]; then
+        echo "Installing nasm..."
+        source "$SDIR/nasm.sh" "${nasm_opts[@]}"
+        echo "nasm installed."
+    fi
+
     if [ $cosmocc_enable == true ]; then
         echo "Installing cosmocc..."
         source "$SDIR/cosmocc.sh" "${cosmocc_opts[@]}"
