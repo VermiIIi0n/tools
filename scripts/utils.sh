@@ -236,8 +236,8 @@ who_owns() {
 
 correct_ownership() {
     local path=$1
-    local owner=${2:-"$(whoami):$(id -gn)"}
-    local old_owner=$(who_owns "$path")
+    local owner=${2:-$(whoami):$(id -gn)}
+    local old_owner="$(who_owns "$path")"
     if [[ $owner != $old_owner ]]; then
         run sudo -E chown -R "$owner" "$path"
     fi

@@ -71,36 +71,40 @@ install_ffmpeg() {
         opts+=("--enable-version3")
     fi
 
-    if [[ $source_only == false ]]; then
-        pkg_install nasm
-    else
-        run cd "$SRCDIR"
-        local nasm_opts=(
-            --prefix="$TMPDIR"
-            --bindir="$BINDIR"
-        )
-        if [[ $DRY == true ]]; then
-            nasm_opts+=(-dry)
+    if [[ ! -x "$(command -v nasm)" ]]; then
+        if [[ $source_only == false ]]; then
+            pkg_install nasm
+        else
+            run cd "$SRCDIR"
+            local nasm_opts=(
+                --prefix="$TMPDIR"
+                --bindir="$BINDIR"
+            )
+            if [[ $DRY == true ]]; then
+                nasm_opts+=(-dry)
+            fi
+            if [[ $QUIET == true ]]; then
+                nasm_opts+=(-quiet)
+            fi
+            source "$SDIR/nasm.sh" "${nasm_opts[@]}" || exit 1
         fi
-        if [[ $QUIET == true ]]; then
-            nasm_opts+=(-quiet)
-        fi
-        source "$SDIR/nasm.sh" "${nasm_opts[@]}" || exit 1
     fi
 
-    if [[ $source_only == false ]]; then
-        pkg_install yasm
-    elif [[ -z $(pkg_check yasm) ]]; then
-        run cd "$SRCDIR"
-        if [[ ! -d "yasm-1.3.0" ]]; then
-            run curl -LO https://www.tortall.net/projects/yasm/releases/yasm-1.3.0.tar.gz
-            run tar xzf yasm-1.3.0.tar.gz
-            run rm yasm-1.3.0.tar.gz
+    if [[ ! -x "$(command -v yasm)" ]]; then
+        if [[ $source_only == false ]]; then
+            pkg_install yasm
+        else
+            run cd "$SRCDIR"
+            if [[ ! -d "yasm-1.3.0" ]]; then
+                run curl -LO https://www.tortall.net/projects/yasm/releases/yasm-1.3.0.tar.gz
+                run tar xzf yasm-1.3.0.tar.gz
+                run rm yasm-1.3.0.tar.gz
+            fi
+            run cd yasm-1.3.0
+            run ./configure --prefix="$TMPDIR" --bindir="$BINDIR"
+            run make -j$(nproc)
+            run sudo -E make install
         fi
-        run cd yasm-1.3.0
-        run ./configure --prefix="$TMPDIR" --bindir="$BINDIR"
-        run make -j$(nproc)
-        run sudo -E make install
     fi
 
     if [[ $source_only == false ]]; then
@@ -241,7 +245,7 @@ install_ffmpeg() {
             local dav1d_tmpdir="$TMPDIR/dav1d"
             run mkdir -p "$dav1d_tmpdir"
             run cd "$dav1d_tmpdir"
-            run meson setup -Denable_tools=false -Denable_tests=false --default-library=static "$SRCDIR/dav1d" --prefix "$TMPDIR" --libdir="$TMPDIR/lib"
+            run meson setup --reconfigure -Denable_tools=false -Denable_tests=false --default-library=static "$SRCDIR/dav1d" --prefix "$TMPDIR" --libdir="$TMPDIR/lib"
             run ninja
             run sudo -E ninja install
         fi
@@ -253,14 +257,14 @@ install_ffmpeg() {
         local vmaf_tmpdir="$TMPDIR/vmaf"
         run mkdir -p "$vmaf_tmpdir"
         run cd "$vmaf_tmpdir"
-        run meson setup -Denable_tests=false -Denable_docs=false --buildtype=release --default-library=static "$SRCDIR/vmaf/libvmaf" --prefix "$TMPDIR" --bindir="$BINDIR" --libdir="$TMPDIR/lib"
+        run meson setup --reconfigure -Denable_tests=false -Denable_docs=false --buildtype=release --default-library=static "$SRCDIR/vmaf/libvmaf" --prefix "$TMPDIR" --bindir="$BINDIR" --libdir="$TMPDIR/lib"
         run ninja
         run sudo -E ninja install
     fi
 
     if [[ "${opts[@]}" == *"--enable-librav1e"* ]]; then
         run cd "$SRCDIR"
-        local rav1e_opts=("--prefix=$TMPDIR")
+        local rav1e_opts=("--prefix=$TMPDIR" "--lib" "--library-type=staticlib")
         if [[ $DRY == true ]]; then
             rav1e_opts+=("-dry")
         fi
@@ -308,11 +312,37 @@ install_ffmpeg() {
             local libplacebo_tmpdir="$TMPDIR/libplacebo"
             run mkdir -p "$libplacebo_tmpdir"
             run cd "$libplacebo_tmpdir"
-            run meson setup --buildtype=release --default-library=static "$SRCDIR/libplacebo" --prefix "$TMPDIR" --libdir="$TMPDIR/lib"
+            run meson setup --reconfigure --buildtype=release --default-library=static "$SRCDIR/libplacebo" --prefix "$TMPDIR" --libdir="$TMPDIR/lib"
             run ninja
             run sudo -E ninja install
         fi
     fi
+
+    if [[ "${opts[@]}" == *"--enable-libjxl"* ]]; then
+        pkg_install libbrotli-dev libgif-dev libjpeg-dev libopenexr-dev libpng-dev libwebp-dev libzstd-dev
+        if [[ "$source_only" == false ]]; then
+            pkg_install libjxl-dev
+        else
+            run cd "$SRCDIR"
+            git_clone_or_pull https://github.com/libjxl/libjxl.git libjxl
+            local libjxl_tmpdir="$TMPDIR/libjxl"
+            run mkdir -p "$libjxl_tmpdir"
+            run cd "$libjxl_tmpdir"
+            run cmake -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX="$TMPDIR" -DBUILD_SHARED_LIBS=OFF "$SRCDIR/libjxl" -DBUILD_TESTING=OFF
+            run make -j$(nproc)
+            run sudo -E make install
+        fi
+    fi
+
+    if [[ "${opts[@]}" == *"--enable-nvenc"* || "${opts[@]}" == *"--enable-nvdec"* ]]; then
+        run cd "$SRCDIR"
+        git_clone_or_pull https://github.com/FFmpeg/nv-codec-headers.git ffnvcodev
+        run cd ffnvcodev
+        run make -j$(nproc)
+        run sudo -E make install PREFIX="$TMPDIR"
+    fi
+
+    optional_run sudo rm "$TMPDIR/lib/"*.so* 2>/dev/null
 
     run cd "$SRCDIR"
     run curl -LO https://ffmpeg.org/releases/ffmpeg-snapshot.tar.bz2
@@ -339,7 +369,7 @@ install_ffmpeg() {
 
     correct_ownership "$TMPDIR" $(who_owns "$(dirname "$TMPDIR")")
     correct_ownership "$BINDIR" $(who_owns "$(dirname "$BINDIR")")
-    run rm -rf "$TMPDIR"
+    run sudo -E rm -rf "$TMPDIR"
 
     cd $ROOTDIR
     run mkdir -p $ROOTDIR/env

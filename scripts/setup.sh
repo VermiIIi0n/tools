@@ -28,13 +28,13 @@ ffmpeg_opts=(
     --enable-fontconfig
     --enable-libbluray
     --enable-libsrt
+    --enable-libjxl  # JPEG XL, a new image compression standard
     # --enable-libaom  # Slow and annoying to build, just use librav1e
 
     ### Features below may require manually adding dependencies
 
     ## Extra codecs
     # --enable-libwebp
-    # --enable-libjxl  # JPEG XL, a new image compression standard
     # --enable-librsvg
     # --enable-libzimg  # Zimg, a lightweight image processing library
     # --enable-libharfbuzz  # OpenType text shaping engine
