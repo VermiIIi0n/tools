@@ -39,7 +39,7 @@ install_cosmocc() {
     run mkdir -p cosmocc
     run cd cosmocc
     run curl -LO $DOWNLOAD_URL
-    run unzip "cosmocc-$VERSION.zip" > /dev/null || error "Failed to unzip cosmocc-$VERSION.zip"
+    run unzip "cosmocc-$VERSION.zip" >/dev/null || error "Failed to unzip cosmocc-$VERSION.zip"
     run rm "cosmocc-$VERSION.zip"
 
     cd $ROOTDIR

@@ -20,7 +20,6 @@ install_rav1e() {
 
     export RUSTFLAGS+=" -C target-cpu=native"
 
-
     pkg_install git cmake curl
     git_clone_or_pull https://github.com/xiph/rav1e.git rav1e
 

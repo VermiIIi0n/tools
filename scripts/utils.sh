@@ -18,7 +18,8 @@ optional_run() {
     echo "$command ${arguments[@]}" # Print command and arguments
 
     if [[ $QUIET == true ]]; then
-        "$command" "${arguments[@]}" </dev/null &1>/dev/null
+        "$command" "${arguments[@]}" </dev/null &
+        1>/dev/null
     else
         "$command" "${arguments[@]}" </dev/null
     fi
@@ -66,14 +67,14 @@ update_var_from_arg() {
     shift 2
     local args=("$@")
 
-    for ((i=${#args[@]}-1; i>=0; i--)); do
+    for ((i = ${#args[@]} - 1; i >= 0; i--)); do
         local arg="${args[i]}"
         if [[ "$arg" == "$arg_flag="* ]]; then
             local value="${arg#*=}"
             printf -v "$var_name" "%s" "$value"
             return 0
-        elif [[ "$arg" == "$arg_flag" && ${args[i+1]} != -* ]]; then
-            local value="${args[i+1]}"
+        elif [[ "$arg" == "$arg_flag" && ${args[i + 1]} != -* ]]; then
+            local value="${args[i + 1]}"
             printf -v "$var_name" "%s" "$value"
             return 0
         fi

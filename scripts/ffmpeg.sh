@@ -8,7 +8,7 @@ install_ffmpeg() {
     local ENV_PATH="$ROOTDIR/env/ffmpeg_env.sh"
     local opts=($(remove_flags_from_arg "$@"))
     local source_only=false
-    opts=(${opts[@]/-source-only})
+    opts=(${opts[@]/-source-only/})
 
     if [[ "$@" == *"-source-only"* ]]; then
         source_only=true
@@ -49,15 +49,15 @@ install_ffmpeg() {
         texinfo \
         zlib1g-dev \
         libunistring-dev \
-        libgnutls28-dev \
-        # libmp3lame-dev \
-        # yasm \
-        # libxcb-xfixes0-dev \
-        # libxcb-shm0-dev \
-        # libxcb1-dev \
-        # libvdpau-dev \
-        # libva-dev \
-        # libsdl2-dev \
+        libgnutls28-dev
+    # libmp3lame-dev \
+    # yasm \
+    # libxcb-xfixes0-dev \
+    # libxcb-shm0-dev \
+    # libxcb1-dev \
+    # libvdpau-dev \
+    # libva-dev \
+    # libsdl2-dev \
 
     if [[ "${opts[@]}" != *"--enable-gpl"* ]]; then
         opts+=("--enable-gpl")
@@ -112,6 +112,9 @@ install_ffmpeg() {
             run tar xzf lame-3.100.tar.gz
             run rm lame-3.100.tar.gz
         fi
+        run curl -LO https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz
+        run tar xzf lame-3.100.tar.gz
+        run rm lame-3.100.tar.gz
         run cd lame-3.100
         run ./configure --prefix="$TMPDIR" --bindir="$BINDIR" --disable-shared --enable-nasm
         run make -j$(nproc)
@@ -264,7 +267,7 @@ install_ffmpeg() {
         if [[ $QUIET == true ]]; then
             rav1e_opts+=("-quiet")
         fi
-        source "$SDIR/rav1e.sh" -cinstall "${rav1e_opts[@]}"  || exit 1
+        source "$SDIR/rav1e.sh" -cinstall "${rav1e_opts[@]}" || exit 1
     fi
 
     if [[ "${opts[@]}" == *"--enable-libbluray"* ]]; then
