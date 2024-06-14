@@ -25,8 +25,22 @@ install_rav1e() {
 
     if ! command -v cargo &>/dev/null; then
         echo "Installing Rust..."
+        PATH="$HOME/.cargo/bin:$PATH"
         run eval "curl --proto '=https' --tlsv1.3 -sSf https://sh.rustup.rs | sh -s -- -y"
         run rustup default stable
+    fi
+
+    # if command nasm is not found, install nasm
+    if [[ ! -x "$(command -v nasm)" ]]; then
+        run cd "$SRCDIR"
+        local nasm_opts=()
+        if [[ $DRY == true ]]; then
+            nasm_opts+=(-dry)
+        fi
+        if [[ $QUIET == true ]]; then
+            nasm_opts+=(-quiet)
+        fi
+        source "$SDIR/nasm.sh" "${nasm_opts[@]}" || exit 1
     fi
 
     run cd rav1e
@@ -35,13 +49,13 @@ install_rav1e() {
         opts=("${opts[@]/-cinstall/}")
         run cargo install cargo-c
         echo "Building rav1e by cinstall..."
-        run sudo -E "$(which cargo)" cinstall --release --prefix="$PREFIX" "${opts[@]}"
+        run sudo -E PATH="$PATH" "$(which cargo)" cinstall --release --prefix="$PREFIX" "${opts[@]}"
         correct_ownership "$PREFIX/include" $(who_owns "$PREFIX")
         correct_ownership "$PREFIX/lib" $(who_owns "$PREFIX")
         echo "Installed rav1e library to $PREFIX"
     else
         echo "Building rav1e..."
-        run sudo -E "$(which cargo)" build --release --target-dir="$TGTDIR" "${opts[@]}"
+        run sudo -E PATH="$PATH" "$(which cargo)" build --release --target-dir="$TGTDIR" "${opts[@]}"
         correct_ownership "$TGTDIR" $(who_owns "$(dirname "$TGTDIR")")
         correct_ownership "$BINDIR" $(who_owns "$(dirname "$BINDIR")")
         run mkdir -p $ROOTDIR/env
