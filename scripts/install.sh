@@ -56,6 +56,18 @@ auto_install() {
         echo "ffmpeg installed."
     fi
 
+    if [[ $aria2_enable == true ]]; then
+        echo "Installing aria2..."
+        source "$SDIR/aria2.sh" "${aria2_opts[@]}"
+        echo "aria2 installed."
+    fi
+
+    if [[ $hashcat_enable == true ]]; then
+        echo "Installing hashcat..."
+        source "$SDIR/hashcat.sh" "${hashcat_opts[@]}"
+        echo "hashcat installed."
+    fi
+
     source "$ROOTDIR/env.sh"
     echo "All done."
 }

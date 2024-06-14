@@ -12,6 +12,7 @@ All tools are installed under the root of the repository (except for some librar
 - [cosmocc](https://github.com/jart/cosmopolitan)
 - [rav1e](https://github.com/xiph/rav1e) (Can be installed along with `ffmpeg`)
 - [nasm](https://www.nasm.us/) (Also be installed along with `ffmpeg`)
+- [wine](https://www.winehq.org/)
 
 ## Special Files
 

@@ -84,3 +84,9 @@ ffmpeg_opts=(
     # --enable-shared
     # --disable-stripping
 )
+
+aria2_enable=false
+aria2_opts=()
+
+hashcat_enable=true
+hashcat_opts=()
