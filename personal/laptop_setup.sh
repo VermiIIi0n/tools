@@ -90,3 +90,6 @@ aria2_opts=()
 
 hashcat_enable=true
 hashcat_opts=()
+
+john_enable=true
+john_opts=()

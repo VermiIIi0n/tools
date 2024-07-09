@@ -68,6 +68,12 @@ auto_install() {
         echo "hashcat installed."
     fi
 
+    if [[ $john_enable == true ]]; then
+        echo "Installing john..."
+        source "$SDIR/john.sh" "${john_opts[@]}"
+        echo "john installed."
+    fi
+
     source "$ROOTDIR/env.sh"
     echo "All done."
 }
